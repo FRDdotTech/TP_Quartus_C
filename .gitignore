@@ -53,3 +53,15 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+
+QsysTuto/**
+.metadata/**
+.qsys_edit/**
+.vscode/**
+db/**
+incremental_db/**
+NIOS2_Workspace/**
+output_files/**
+software/TP_QUARTUS_TUTO/.settings/**
+software/TP_QUARTUS_TUTO_bsp/**
