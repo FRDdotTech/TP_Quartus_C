@@ -41,28 +41,16 @@ alt_u32 time3;
 #define NEGATIVE	0b0111111
 #define NO_NUM		0b1111111
 
+/**
 
-//#define DEBUG
+DEBUG macros
+
+*/
+#define DEBUG
 #define FASTCLOCK
+#ifdef FASTCLOCK
 #define FASTCLOCK_FREQ 10
-
-//
-// fonction prototypes
-//
-
-int get_key(void);
-int get_switch(void);
-int print_result(void);
-int hp_out(void);
-alt_u32 internal_alarm_callback (void* context);
-alt_u32 user_alarm_callback (void* context);
-alt_8 time_display(void);
-alt_u8 time_2_hhmmss(alt_8 *hour, alt_8 *min, alt_8 *sec, alt_u32 time);
-alt_u8 time_2_bcd(alt_8 time, alt_8 *decimal, alt_8 *unit);
-alt_u8 update_display(internal_time time);
-
-static alt_alarm internal_alarm;
-static alt_alarm user_alarm;
+#endif
 
 
 typedef struct internal_time_s 
@@ -87,6 +75,29 @@ internal_time internal;
 internal_time alarm_time;
 
 
+//
+// fonction prototypes
+//
+
+int get_key(void);
+alt_u16 get_switch(void);
+int print_result(void);
+int hp_out(void);
+alt_u32 internal_alarm_callback (void* context);
+alt_u32 user_alarm_callback (void* context);
+alt_u8 time_display(void);
+alt_u8 time_2_hhmmss(internal_time *time);
+alt_u8 time_2_bcd(alt_8 time, alt_8 *decimal, alt_8 *unit);
+alt_u8 update_display(internal_time *time);
+alt_u8 activate_alarm(void);
+alt_u8 foo(alt_u8 *fee);
+alt_u8 sub_foo(alt_u8 *fee);
+
+static alt_alarm internal_alarm;
+static alt_alarm user_alarm;
+
+
+
 volatile int * LED_ptr = (int *)LED_R_BASE; // LED address
 volatile int * SW_switch_ptr = (int *)SWITCHES_2POS_BASE; // SW slider address
 volatile int * KEY_ptr = (int *)PUSH_BUTTONS_BASE; // pushbutton KEY address
@@ -95,7 +106,7 @@ volatile int * HEX5_HEX4_ptr = (int *)BCD5_BCD4_BASE; // HEX3_HEX0 address
 volatile int * HP_ptr = (int *)HP_OUT_BASE; // HEX3_HEX0 address
 int HEX_bits = 0x0; // initial pattern for HEX displays
 int LED_bits = 0x0; // initial pattern for LED lights
-int SW_value; //, KEY_value;
+alt_u16 SW_value; //, KEY_value;
 int press, delay_count = 0;
 int pressed_key = NO_KEY;
 int op_LSB = 0;
@@ -107,11 +118,12 @@ int unit = 0;
 
 int convertion_array[10] = {HEX_0, HEX_1, HEX_2, HEX_3, HEX_4, HEX_5, HEX_6, HEX_7, HEX_8, HEX_9};
 
-
+alt_u8 test_var = 8;
 
 
 /* MAIN FUNCTION */
 int main(void) {
+	internal.bcd_sec_1 = 5;
 #ifdef FASTCLOCK
 	printf("WARINING FASTCLOCK IS ENABLED\n");
 	if (alt_alarm_start (&internal_alarm, alt_ticks_per_second()/FASTCLOCK_FREQ, internal_alarm_callback, NULL) < 0)
@@ -130,12 +142,16 @@ int main(void) {
 		printf ("No system clock available\n");
 	}
 	printf("NIOSII started !!!");
-	while (1)
+	for(;;)
 	{
 		//get_key();
 		//get_switch();
 		//print_result();
         //hp_out();
+		if(SW_value && 0b0000000001);
+		{
+			activate_alarm();
+		}
 
 		for (delay_count = 20000; delay_count != 0; --delay_count); // delay loop
 	}
@@ -194,18 +210,20 @@ int get_key(void)
     return 0;
 }
 
-int get_switch(void)
+alt_u16 get_switch(void)
 {
 	SW_value = IORD_ALTERA_AVALON_PIO_DATA(SW_switch_ptr); //*(SW_switch_ptr); // read the SW slider switch values
 	op_LSB = SW_value & 0b0000011111;
 	op_MSB = SW_value & 0b1111100000;
 	op_MSB = op_MSB >> 5;
 
+#ifdef DEBUG_SW
 	printf("LSB = ");
 	printf("%d\n", op_LSB);
 
 	printf("MSB = ");
 	printf("%d\n", op_MSB);
+#endif
     return 0;
 }
 
@@ -241,15 +259,26 @@ int print_result(void)
 
 alt_u8 set_alarm_time(void)
 {
-	
+	return 0;
 }
 
+alt_u8 activate_alarm(void)
+{
+	LED_bits = 0b000000001;
+	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
+	return 0;
+}
 
-alt_8 time_display(void)
+alt_u8 time_display(void)
 {
 	update_display(&internal);
 	printf("\n interal time = %d", (int)internal.time);
 	printf("\n%d - %d - %d", (int)internal.hours, (int)internal.minutes, (int)internal.seconds);
+
+
+#ifdef DEBUG
+	printf("\n%d%d", internal.bcd_hou_1, internal.bcd_hou_0);
+#endif
 
 	/* HOURS */
 	HEX_bits = convertion_array[abs(internal.bcd_hou_1)];
@@ -272,27 +301,41 @@ alt_8 time_display(void)
 	return 0;
 }
 
-alt_u8 time_2_hhmmss(alt_8 *hour, alt_8 *min, alt_8 *sec, alt_u32 time)
+alt_u8 time_2_hhmmss(internal_time *time)
 {
-	*hour = time / 3600;
-	*min = (time % 3600)/60;
-	*sec = ((time % 3600) % 60);
+	time->hours = time->time / 3600;
+	time->minutes = (time->time % 3600)/60;
+	time->seconds = ((time->time % 3600) % 60);
+#ifdef DEBUG
+	printf("\ntime_2_hhmmss");
+	printf("\ntime = %d", time);
+#endif
 	return 0;
 }
 
 alt_u8 time_2_bcd(alt_8 time, alt_8 *decimal, alt_8 *unit)
 {
+
 	*decimal = time / 10;
 	*unit = time % 10;
+#ifdef DEBUG
+	printf("\ntime 4 bcd = %d", time);
+	printf("\ndec 4 bcd = %d", decimal);
+	printf("\nunit 4 bcd = %d", unit);
+#endif
 	return 0;
 }
 
-alt_u8 update_display(internal_time time)
+alt_u8 update_display(internal_time *time)
 {
-	time_2_hhmmss(&time.hours, &time.minutes, &time.seconds, time.time);
-	time_2_bcd(time.seconds, &time.bcd_sec_1, &time.bcd_sec_0);
-	time_2_bcd(time.minutes, &time.bcd_min_1, &time.bcd_min_0);
-	time_2_bcd(time.hours, &time.bcd_hou_1, &time.bcd_hou_0);
+	time_2_hhmmss(time);
+	time_2_bcd(time->seconds, time->bcd_sec_1, time->bcd_sec_0);
+	// time_2_bcd(time.minutes, &time.bcd_min_1, &time.bcd_min_0);
+	// time_2_bcd(time.hours, &time.bcd_hou_1, &time.bcd_hou_0);
+#ifdef DEBUG
+	printf("\nupdate display ");
+	printf("%d", internal.bcd_sec_0);
+#endif
 	return 0;
 }
 
@@ -311,3 +354,24 @@ int hp_out(void)
     return 0;
 }
 
+
+
+alt_u8 foo(alt_u8 *fee)
+{
+	printf("\nfoo");
+	printf("\nfee = %d", *fee);
+	*fee = 15;
+	printf("\nfee = %d", *fee);
+	printf("\testvar = %d", test_var);
+	sub_foo(fee);
+
+}
+
+alt_u8 sub_foo(alt_u8 *fee)
+{
+	printf("\nsub_foo");
+	printf("\nfee = %d", *fee);
+	*fee = 29;
+	printf("\nfee = %d", *fee);
+	printf("\testvar = %d", test_var);
+}
