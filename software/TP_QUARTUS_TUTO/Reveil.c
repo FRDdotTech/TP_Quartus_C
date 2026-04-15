@@ -49,31 +49,29 @@ DEBUG macros
 #define DEBUG
 #define FASTCLOCK
 #ifdef FASTCLOCK
-#define FASTCLOCK_FREQ 10
+#define FASTCLOCK_FREQ 50
 #endif
 
 
-typedef struct internal_time_s 
+typedef struct display_img_s
 {
-	alt_32 time;
+	alt_u8 seconds;
+	alt_u8 minutes;
+	alt_u8 hours;
 
-	alt_8 seconds;
-	alt_8 minutes;
-	alt_8 hours;
+	alt_u8 bcd_sec_0;
+	alt_u8 bcd_sec_1;
 
-	alt_8 bcd_sec_0;
-	alt_8 bcd_sec_1;
+	alt_u8 bcd_min_0;
+	alt_u8 bcd_min_1;
 
-	alt_8 bcd_min_0;
-	alt_8 bcd_min_1;
+	alt_u8 bcd_hou_0;
+	alt_u8 bcd_hou_1;
+}display_img;
 
-	alt_8 bcd_hou_0;
-	alt_8 bcd_hou_1;
-}internal_time;
-
-internal_time internal;
-internal_time alarm_time;
-
+alt_u32 internal_time;
+alt_u32 alarm_time;
+display_img display;
 
 //
 // fonction prototypes
@@ -85,10 +83,10 @@ int print_result(void);
 int hp_out(void);
 alt_u32 internal_alarm_callback (void* context);
 alt_u32 user_alarm_callback (void* context);
-alt_u8 time_display(void);
-alt_u8 time_2_hhmmss(internal_time *time);
-alt_u8 time_2_bcd(alt_8 time, alt_8 *decimal, alt_8 *unit);
-alt_u8 update_display(internal_time *time);
+alt_u8 display_current_time(void);
+alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec);
+alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit);
+alt_u8 update_display(alt_u32 time);
 alt_u8 activate_alarm(void);
 alt_u8 foo(alt_u8 *fee);
 alt_u8 sub_foo(alt_u8 *fee);
@@ -123,7 +121,6 @@ alt_u8 test_var = 8;
 
 /* MAIN FUNCTION */
 int main(void) {
-	internal.bcd_sec_1 = 5;
 #ifdef FASTCLOCK
 	printf("WARINING FASTCLOCK IS ENABLED\n");
 	if (alt_alarm_start (&internal_alarm, alt_ticks_per_second()/FASTCLOCK_FREQ, internal_alarm_callback, NULL) < 0)
@@ -167,8 +164,8 @@ int main(void) {
 */
 alt_u32 internal_alarm_callback (void* context)
 {
-	internal.time++;
-	time_display();
+	internal_time++;
+	display_current_time();
 #ifdef FASTCLOCK
 	return alt_ticks_per_second()/FASTCLOCK_FREQ;
 #else
@@ -269,43 +266,49 @@ alt_u8 activate_alarm(void)
 	return 0;
 }
 
-alt_u8 time_display(void)
+/**
+ * display the internal time on the 6 7seg displays
+ */
+alt_u8 display_current_time(void)
 {
-	update_display(&internal);
-	printf("\n interal time = %d", (int)internal.time);
-	printf("\n%d - %d - %d", (int)internal.hours, (int)internal.minutes, (int)internal.seconds);
+	update_display(internal_time);
+	printf("\n interal time = %d", (int)internal_time);
+	printf("\n%d - %d - %d", (int)display.hours, (int)display.minutes, (int)display.seconds);
 
 
 #ifdef DEBUG
-	printf("\n%d%d", internal.bcd_hou_1, internal.bcd_hou_0);
+	printf("\n%d%d", display.bcd_hou_1, display.bcd_hou_0);
 #endif
 
 	/* HOURS */
-	HEX_bits = convertion_array[abs(internal.bcd_hou_1)];
+	HEX_bits = convertion_array[abs(display.bcd_hou_1)];
 	HEX_bits = HEX_bits << 8;
-	HEX_bits = HEX_bits + convertion_array[abs(internal.bcd_hou_0)];
+	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_hou_0)];
 	IOWR_ALTERA_AVALON_PIO_DATA(HEX5_HEX4_ptr, HEX_bits);
 
 	/* MINUTES */
-	HEX_bits = convertion_array[abs(internal.bcd_min_1)];
+	HEX_bits = convertion_array[abs(display.bcd_min_1)];
 	HEX_bits = HEX_bits << 8;
-	HEX_bits = HEX_bits + convertion_array[abs(internal.bcd_min_0)];
+	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_min_0)];
 	HEX_bits = HEX_bits << 8;
 
 	/* SECONDS */
-	HEX_bits = HEX_bits + convertion_array[abs(internal.bcd_sec_1)];
+	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_sec_1)];
 	HEX_bits = HEX_bits << 8;
-	HEX_bits = HEX_bits + convertion_array[abs(internal.bcd_sec_0)];
+	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_sec_0)];
 
 	IOWR_ALTERA_AVALON_PIO_DATA(HEX3_HEX0_ptr, HEX_bits);
 	return 0;
 }
 
-alt_u8 time_2_hhmmss(internal_time *time)
+/**
+ * convert 32bits int in formated time structure
+ */
+alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec)
 {
-	time->hours = time->time / 3600;
-	time->minutes = (time->time % 3600)/60;
-	time->seconds = ((time->time % 3600) % 60);
+	*hour = time / 3600;
+	*min = (time % 3600)/60;
+	*sec = ((time % 3600) % 60);
 #ifdef DEBUG
 	printf("\ntime_2_hhmmss");
 	printf("\ntime = %d", time);
@@ -313,28 +316,35 @@ alt_u8 time_2_hhmmss(internal_time *time)
 	return 0;
 }
 
-alt_u8 time_2_bcd(alt_8 time, alt_8 *decimal, alt_8 *unit)
+
+/**
+ * convert 8bits hex in 2 8bits BCD
+ */
+alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit)
 {
 
 	*decimal = time / 10;
 	*unit = time % 10;
 #ifdef DEBUG
 	printf("\ntime 4 bcd = %d", time);
-	printf("\ndec 4 bcd = %d", decimal);
-	printf("\nunit 4 bcd = %d", unit);
+	printf("\ndec 4 bcd = %d", *decimal);
+	printf("\nunit 4 bcd = %d", *unit);
 #endif
 	return 0;
 }
 
-alt_u8 update_display(internal_time *time)
+/**
+ * transforme the 32bits value to time format and diplay it on the 6 7seg displays
+ */
+alt_u8 update_display(alt_u32 time)
 {
-	time_2_hhmmss(time);
-	time_2_bcd(time->seconds, time->bcd_sec_1, time->bcd_sec_0);
-	// time_2_bcd(time.minutes, &time.bcd_min_1, &time.bcd_min_0);
-	// time_2_bcd(time.hours, &time.bcd_hou_1, &time.bcd_hou_0);
+	time_2_hhmmss(time, &display.hours, &display.minutes, &display.seconds);
+	time_2_bcd(display.seconds, &display.bcd_sec_1, &display.bcd_sec_0);
+	time_2_bcd(display.minutes, &display.bcd_min_1, &display.bcd_min_0);
+	time_2_bcd(display.hours, &display.bcd_hou_1, &display.bcd_hou_0);
 #ifdef DEBUG
 	printf("\nupdate display ");
-	printf("%d", internal.bcd_sec_0);
+	printf("%d", display.bcd_sec_0);
 #endif
 	return 0;
 }
@@ -352,26 +362,4 @@ int hp_out(void)
     }
     
     return 0;
-}
-
-
-
-alt_u8 foo(alt_u8 *fee)
-{
-	printf("\nfoo");
-	printf("\nfee = %d", *fee);
-	*fee = 15;
-	printf("\nfee = %d", *fee);
-	printf("\testvar = %d", test_var);
-	sub_foo(fee);
-
-}
-
-alt_u8 sub_foo(alt_u8 *fee)
-{
-	printf("\nsub_foo");
-	printf("\nfee = %d", *fee);
-	*fee = 29;
-	printf("\nfee = %d", *fee);
-	printf("\testvar = %d", test_var);
 }
