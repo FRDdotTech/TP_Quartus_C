@@ -46,10 +46,11 @@ alt_u32 time3;
 DEBUG macros
 
 */
-#define DEBUG
+//#define DEBUG
+#define INFO
 #define FASTCLOCK
 #ifdef FASTCLOCK
-#define FASTCLOCK_FREQ 50
+#define FASTCLOCK_FREQ 20
 #endif
 
 
@@ -77,8 +78,8 @@ display_img display;
 // fonction prototypes
 //
 
-int get_key(void);
-alt_u16 get_switch(void);
+alt_u8 get_key(void);
+alt_u8 get_switch(void);
 int print_result(void);
 int hp_out(void);
 alt_u32 internal_alarm_callback (void* context);
@@ -88,8 +89,8 @@ alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec);
 alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit);
 alt_u8 update_display(alt_u32 time);
 alt_u8 activate_alarm(void);
-alt_u8 foo(alt_u8 *fee);
-alt_u8 sub_foo(alt_u8 *fee);
+alt_u8 set_alarm_time(void);
+
 
 static alt_alarm internal_alarm;
 static alt_alarm user_alarm;
@@ -104,7 +105,8 @@ volatile int * HEX5_HEX4_ptr = (int *)BCD5_BCD4_BASE; // HEX3_HEX0 address
 volatile int * HP_ptr = (int *)HP_OUT_BASE; // HEX3_HEX0 address
 int HEX_bits = 0x0; // initial pattern for HEX displays
 int LED_bits = 0x0; // initial pattern for LED lights
-alt_u16 SW_value; //, KEY_value;
+alt_u16 SW_value;
+alt_u8 KEY_value;
 int press, delay_count = 0;
 int pressed_key = NO_KEY;
 int op_LSB = 0;
@@ -141,14 +143,21 @@ int main(void) {
 	printf("NIOSII started !!!");
 	for(;;)
 	{
-		//get_key();
-		//get_switch();
+		get_key();
+		get_switch();
 		//print_result();
         //hp_out();
+		
+
 		if(SW_value && 0b0000000001);
 		{
 			activate_alarm();
 		}
+		if (SW_value && 0b0000000010)
+		{
+			set_alarm_time();
+		}
+		
 
 		for (delay_count = 20000; delay_count != 0; --delay_count); // delay loop
 	}
@@ -180,46 +189,26 @@ alt_u32 user_alarm_callback (void* context)
 	return 10000;
 }
 
-int get_key(void)
+/**
+ * store the switch register value in "SW_value"
+ */
+alt_u8 get_switch(void)
 {
-	press = IORD_ALTERA_AVALON_PIO_DATA(KEY_ptr); //*(KEY_ptr + 3); // read the pushbutton edge capture register
-	//IOWR_ALTERA_AVALON_PIO_EDGE_CAP(KEY_ptr, press); //*(KEY_ptr + 3) = press; // Clear the edge capture register
-	switch (press)
-	{
-	case NO_KEY:
-		result = op_LSB + op_MSB;
-		break;
-	case KEY_0:
-		result = op_LSB - op_MSB;
-		break;
-	case KEY_1:
-		result = op_LSB * op_MSB;
-		break;
-	case KEY_0_1:
-		result = op_LSB / op_MSB;
-		break;
-	
-	default:
-		break;
-	}
-	printf("result = ");
-	printf("%d\n", result);
+	SW_value = IORD_ALTERA_AVALON_PIO_DATA(SW_switch_ptr); //*(SW_switch_ptr); // read the SW slider switch values
+#ifdef INFO
+	printf("\n switches -> %x", SW_value);
+#endif
     return 0;
 }
 
-alt_u16 get_switch(void)
+/**
+ * store the push button (key) register value in "KEY_value"
+ */
+alt_u8 get_key(void)
 {
-	SW_value = IORD_ALTERA_AVALON_PIO_DATA(SW_switch_ptr); //*(SW_switch_ptr); // read the SW slider switch values
-	op_LSB = SW_value & 0b0000011111;
-	op_MSB = SW_value & 0b1111100000;
-	op_MSB = op_MSB >> 5;
-
-#ifdef DEBUG_SW
-	printf("LSB = ");
-	printf("%d\n", op_LSB);
-
-	printf("MSB = ");
-	printf("%d\n", op_MSB);
+	KEY_value = IORD_ALTERA_AVALON_PIO_DATA(KEY_ptr);
+#ifdef INFO
+	printf("\n switches -> %d", KEY_value);
 #endif
     return 0;
 }
@@ -254,13 +243,45 @@ int print_result(void)
     return 0;
 }
 
+/**
+ * allow the user to set the alarm time using the 2 push button the the board
+ */
 alt_u8 set_alarm_time(void)
 {
-	return 0;
+#ifdef INFO
+	printf("\n in set_alarm_time()");
+#endif
+	update_display(alarm_time);
+	while(SW_value && 0b0000000010)
+	{
+		get_switch();
+		get_key();
+		switch (KEY_value)
+		{
+		case NO_KEY:
+			break;
+
+		case KEY_0:
+			alarm_time = alarm_time + 3600; // add 1 hour
+
+		case KEY_1:
+			alarm_time = alarm_time + 60; // add 1 minute
+
+		case KEY_0_1:
+			alarm_time = alarm_time - 60; // remove 1 minute
+
+		default:
+			break;
+		}
+		update_display(alarm_time);
+	}
 }
 
 alt_u8 activate_alarm(void)
 {
+#ifdef INFO
+	printf("\n in activate_alarm()");
+#endif
 	LED_bits = 0b000000001;
 	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
 	return 0;
@@ -272,8 +293,10 @@ alt_u8 activate_alarm(void)
 alt_u8 display_current_time(void)
 {
 	update_display(internal_time);
+#ifdef INFO
 	printf("\n interal time = %d", (int)internal_time);
 	printf("\n%d - %d - %d", (int)display.hours, (int)display.minutes, (int)display.seconds);
+#endif
 
 
 #ifdef DEBUG
