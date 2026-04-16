@@ -27,6 +27,9 @@ alt_u32 time3;
 #define KEY_1 	2
 #define KEY_0_1	3
 
+#define FORMAT_24H 0
+#define FORMAT_12H 1
+
 
 #define HEX_0		0b1000000
 #define HEX_1		0b1111001
@@ -40,13 +43,16 @@ alt_u32 time3;
 #define HEX_9		0b0010000
 #define NEGATIVE	0b0111111
 #define NO_NUM		0b1111111
+#define SEG_A		0b1000000
+#define SEG_P		0b0001000
+#define SEG_M		0b1000000
 
 /**
 
 DEBUG macros
 
 */
-//#define DEBUG
+// #define DEBUG
 #define INFO
 #define FASTCLOCK
 #ifdef FASTCLOCK
@@ -70,9 +76,12 @@ typedef struct display_img_s
 	alt_u8 bcd_hou_1;
 }display_img;
 
-alt_u32 internal_time;
-alt_u32 alarm_time;
+alt_u32 internal_time = 0;
+alt_u32 alarm_time = 0;
 display_img display;
+alt_u8 alarm_state = 0;
+alt_u8 alarm_set = 0;
+alt_u8 internal_time_set = 0;
 
 //
 // fonction prototypes
@@ -87,9 +96,11 @@ alt_u32 user_alarm_callback (void* context);
 alt_u8 display_current_time(void);
 alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec);
 alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit);
-alt_u8 update_display(alt_u32 time);
+alt_u8 update_display(alt_u32 time, alt_u8 format);
 alt_u8 activate_alarm(void);
+alt_u8 deactivate_alarm(void);
 alt_u8 set_alarm_time(void);
+alt_u8 set_internal_time(void);
 
 
 static alt_alarm internal_alarm;
@@ -145,18 +156,41 @@ int main(void) {
 	{
 		get_key();
 		get_switch();
-		//print_result();
-        //hp_out();
 		
 
-		if(SW_value && 0b0000000001);
+		if(SW_value & 0b0000000001)
 		{
+			alarm_state = 1;
 			activate_alarm();
 		}
-		if (SW_value && 0b0000000010)
+		else
 		{
+			alarm_state = 0;
+			deactivate_alarm();
+		}
+		
+		if (SW_value & 0b0000000010)
+		{
+			alarm_set = 1;
 			set_alarm_time();
 		}
+		else
+		{
+			alarm_set = 0;
+		}
+
+		if (SW_value & 0b0000000100)
+		{
+			internal_time_set = 1;
+			set_internal_time();
+		}
+		else
+		{
+			internal_time_set = 0;
+		}
+
+		printf("\nalarm state = %d", alarm_state);
+		printf("\nset alarm = %d", alarm_set);
 		
 
 		for (delay_count = 20000; delay_count != 0; --delay_count); // delay loop
@@ -173,8 +207,29 @@ int main(void) {
 */
 alt_u32 internal_alarm_callback (void* context)
 {
-	internal_time++;
-	display_current_time();
+	if(!internal_time_set)
+	{
+		internal_time++;
+	}
+	if (alarm_set)
+	{
+		update_display(alarm_time, FORMAT_12H);
+	}
+	else
+	{
+		display_current_time();
+	}
+	if(alarm_state)
+	{
+		if(internal_time == alarm_time)
+		{
+			hp_out();
+		}
+	}
+	if(internal_time >= 86400)
+	{
+		internal_time = 0;
+	}
 #ifdef FASTCLOCK
 	return alt_ticks_per_second()/FASTCLOCK_FREQ;
 #else
@@ -195,7 +250,7 @@ alt_u32 user_alarm_callback (void* context)
 alt_u8 get_switch(void)
 {
 	SW_value = IORD_ALTERA_AVALON_PIO_DATA(SW_switch_ptr); //*(SW_switch_ptr); // read the SW slider switch values
-#ifdef INFO
+#ifdef DEBUG
 	printf("\n switches -> %x", SW_value);
 #endif
     return 0;
@@ -207,7 +262,7 @@ alt_u8 get_switch(void)
 alt_u8 get_key(void)
 {
 	KEY_value = IORD_ALTERA_AVALON_PIO_DATA(KEY_ptr);
-#ifdef INFO
+#ifdef DEBUG
 	printf("\n switches -> %d", KEY_value);
 #endif
     return 0;
@@ -249,10 +304,9 @@ int print_result(void)
 alt_u8 set_alarm_time(void)
 {
 #ifdef INFO
-	printf("\n in set_alarm_time()");
+	printf("\n alarm_time = %d", alarm_time);
 #endif
-	update_display(alarm_time);
-	while(SW_value && 0b0000000010)
+	while(SW_value & 0b0000000010)
 	{
 		get_switch();
 		get_key();
@@ -262,27 +316,71 @@ alt_u8 set_alarm_time(void)
 			break;
 
 		case KEY_0:
-			alarm_time = alarm_time + 3600; // add 1 hour
-
-		case KEY_1:
-			alarm_time = alarm_time + 60; // add 1 minute
+			alarm_time = alarm_time - 60; // add 1 hour
 
 		case KEY_0_1:
-			alarm_time = alarm_time - 60; // remove 1 minute
+			alarm_time = alarm_time + 3600; // add 1 minute
+
+		case KEY_1:
+			alarm_time = alarm_time + 60; // remove 1 minute
 
 		default:
 			break;
 		}
-		update_display(alarm_time);
+		printf("\nalarm_time = %d", alarm_time);
+		for (delay_count = 200000; delay_count != 0; --delay_count); // delay loop
+		if(alarm_time >= 86400)
+		{
+			alarm_time = 0;
+		}
+	}
+}
+
+alt_u8 set_internal_time(void)
+{
+#ifdef INFO
+	printf("\n internal_time = %d", internal_time);
+#endif
+	while(SW_value & 0b0000000100)
+	{
+		get_switch();
+		get_key();
+		switch (KEY_value)
+		{
+		case NO_KEY:
+			break;
+
+		case KEY_0:
+			internal_time = internal_time - 60; // add 1 hour
+
+		case KEY_0_1:
+			internal_time = internal_time + 3600; // add 1 minute
+
+		case KEY_1:
+			internal_time = internal_time + 60; // remove 1 minute
+
+		default:
+			break;
+		}
+		printf("\n internal_time = %d", internal_time);
+		for (delay_count = 200000; delay_count != 0; --delay_count); // delay loop
+		if(internal_time >= 86400)
+		{
+			internal_time = 0;
+		}
 	}
 }
 
 alt_u8 activate_alarm(void)
 {
-#ifdef INFO
-	printf("\n in activate_alarm()");
-#endif
 	LED_bits = 0b000000001;
+	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
+	return 0;
+}
+
+alt_u8 deactivate_alarm(void)
+{
+	LED_bits = 0b000000000;
 	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
 	return 0;
 }
@@ -292,7 +390,7 @@ alt_u8 activate_alarm(void)
  */
 alt_u8 display_current_time(void)
 {
-	update_display(internal_time);
+	update_display(internal_time, FORMAT_12H);
 #ifdef INFO
 	printf("\n interal time = %d", (int)internal_time);
 	printf("\n%d - %d - %d", (int)display.hours, (int)display.minutes, (int)display.seconds);
@@ -302,25 +400,6 @@ alt_u8 display_current_time(void)
 #ifdef DEBUG
 	printf("\n%d%d", display.bcd_hou_1, display.bcd_hou_0);
 #endif
-
-	/* HOURS */
-	HEX_bits = convertion_array[abs(display.bcd_hou_1)];
-	HEX_bits = HEX_bits << 8;
-	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_hou_0)];
-	IOWR_ALTERA_AVALON_PIO_DATA(HEX5_HEX4_ptr, HEX_bits);
-
-	/* MINUTES */
-	HEX_bits = convertion_array[abs(display.bcd_min_1)];
-	HEX_bits = HEX_bits << 8;
-	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_min_0)];
-	HEX_bits = HEX_bits << 8;
-
-	/* SECONDS */
-	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_sec_1)];
-	HEX_bits = HEX_bits << 8;
-	HEX_bits = HEX_bits + convertion_array[abs(display.bcd_sec_0)];
-
-	IOWR_ALTERA_AVALON_PIO_DATA(HEX3_HEX0_ptr, HEX_bits);
 	return 0;
 }
 
@@ -359,16 +438,65 @@ alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit)
 /**
  * transforme the 32bits value to time format and diplay it on the 6 7seg displays
  */
-alt_u8 update_display(alt_u32 time)
+alt_u8 update_display(alt_u32 time, alt_u8 format)
 {
 	time_2_hhmmss(time, &display.hours, &display.minutes, &display.seconds);
 	time_2_bcd(display.seconds, &display.bcd_sec_1, &display.bcd_sec_0);
 	time_2_bcd(display.minutes, &display.bcd_min_1, &display.bcd_min_0);
+	if (format)
+	{
+		if(display.hours > 11)
+		{
+			display.hours = display.hours - 12;
+		}
+	}
+	
 	time_2_bcd(display.hours, &display.bcd_hou_1, &display.bcd_hou_0);
 #ifdef DEBUG
 	printf("\nupdate display ");
 	printf("%d", display.bcd_sec_0);
 #endif
+	if(format)
+	{
+		/* HOURS */
+		HEX_bits = convertion_array[abs(display.bcd_hou_0)];
+		HEX_bits = HEX_bits << 8;
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_hou_1)];
+		IOWR_ALTERA_AVALON_PIO_DATA(HEX5_HEX4_ptr, HEX_bits);
+
+		/* MINUTES */
+		HEX_bits = convertion_array[abs(display.bcd_min_1)];
+		HEX_bits = HEX_bits << 8;
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_min_0)];
+		HEX_bits = HEX_bits << 8;
+
+		/* SECONDS */
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_sec_1)];
+		HEX_bits = HEX_bits << 8;
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_sec_0)];
+		IOWR_ALTERA_AVALON_PIO_DATA(HEX3_HEX0_ptr, HEX_bits);
+	}
+	else
+	{
+		/* MERRIDIAN */
+		HEX_bits = SEG_A;
+		HEX_bits = HEX_bits << 8;
+		HEX_bits = HEX_bits + SEG_M;
+		IOWR_ALTERA_AVALON_PIO_DATA(HEX5_HEX4_ptr, HEX_bits);
+
+		/* HOUR */
+		HEX_bits = convertion_array[abs(display.bcd_hou_0)];
+		HEX_bits = HEX_bits << 8;
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_hou_1)];
+		HEX_bits = HEX_bits << 8;
+
+		/* MINUTES */
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_min_1)];
+		HEX_bits = HEX_bits << 8;
+		HEX_bits = HEX_bits + convertion_array[abs(display.bcd_min_0)];
+		IOWR_ALTERA_AVALON_PIO_DATA(HEX3_HEX0_ptr, HEX_bits);
+	}
+	
 	return 0;
 }
 
