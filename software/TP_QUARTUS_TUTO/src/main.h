@@ -56,6 +56,17 @@
 #define SEG_M		0b1000000
 alt_u8 convertion_array[10] = {HEX_0, HEX_1, HEX_2, HEX_3, HEX_4, HEX_5, HEX_6, HEX_7, HEX_8, HEX_9};
 
+/**
+ * @brief Error codes
+ */
+#define ERR_OK 0
+#define ERR_INVALID_KEY 1
+#define ERR_INVALID_SW 2
+#define ERR_INVALID_TIME 3
+#define ERR_ALARM_TIME_NOT_SET 4
+#define ERR_ALARM_NOT_SET 5
+#define ERR_ALARM_ALREADY_SET 6
+#define ERR_OVERFLOW 7
 
 
 /**
@@ -111,7 +122,7 @@ alt_u32 internal_alarm_callback (void* context);
 alt_u32 user_alarm_callback (void* context);
 alt_u8 display_current_time(void);
 alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec);
-alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit);
+alt_u8 bin_2_bcd(alt_u8 bin, alt_u8 *decimal, alt_u8 *unit)
 alt_u8 update_display(alt_u32 time, alt_u8 format);
 alt_u8 activate_alarm(void);
 alt_u8 deactivate_alarm(void);
