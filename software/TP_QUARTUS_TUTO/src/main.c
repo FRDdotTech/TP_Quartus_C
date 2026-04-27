@@ -1,7 +1,12 @@
 /**
  * @file main.c
- * @brief This file contains the main function and the functions used in the main.c file
- * @author A. Frayard
+ * @author Antoine.F
+ * @brief this file contains the main function of the project, it initializes the internal alarm and enter in an infinite loop to check the state of the switches and push buttons
+ * @version 0.1
+ * @date 23/04/2026
+ * 
+ * @copyright Copyright (c) 2026
+ * 
  */
 
 #include "main.h"
@@ -104,9 +109,12 @@ int main(void) {
 
 
 /**
-* @brief main alarm callback function, called every second by the internal alarm, 
-* @brief updates the internal time and check if the alarm time is reached
-*/
+ * @brief main alarm callback function, called every second by the internal alarm, 
+ * @brief updates the internal time and check if the alarm time is reached
+ * 
+ * @param context the context for the callback
+ * @return alt_u32 
+ */
 alt_u32 internal_alarm_callback (void* context)
 {
 	if(!internal_time_set)
@@ -139,6 +147,12 @@ alt_u32 internal_alarm_callback (void* context)
 #endif
 }
 
+/**
+ * @brief multi-purpose alarm callback function
+ * 
+ * @param context the context for the callback
+ * @return alt_u32 
+ */
 alt_u32 user_alarm_callback (void* context)
 {
 	//hp_out();
@@ -148,6 +162,8 @@ alt_u32 user_alarm_callback (void* context)
 
 /**
  * @brief store the switch register value in "SW_value"
+ * 
+ * @return alt_u8 
  */
 alt_u8 get_switch(void)
 {
@@ -160,6 +176,8 @@ alt_u8 get_switch(void)
 
 /**
  * @brief store the push button (key) register value in "KEY_value"
+ * 
+ * @return alt_u8 
  */
 alt_u8 get_key(void)
 {
@@ -172,6 +190,8 @@ alt_u8 get_key(void)
 
 /**
  * @brief enter blocking loop to display the alarm time and allow the user to change it using the push buttons
+ * 
+ * @return alt_u8 
  */
 alt_u8 set_alarm_time(void)
 {
@@ -211,6 +231,8 @@ alt_u8 set_alarm_time(void)
 
 /**
  * @brief allow the user to set the internal time using the 2 push button the the board
+ * 
+ * @return alt_u8 
  */
 alt_u8 set_internal_time(void)
 {
@@ -249,9 +271,19 @@ alt_u8 set_internal_time(void)
 
 /**
  * @brief turn on the "alarm_state" flag and the alarm LED light
+ * 
+ * @return alt_u8 
  */
 alt_u8 activate_alarm(void)
 {
+	if (alarm_time == 0)
+	{
+		return ERR_ALARM_TIME_NOT_SET;
+	}
+	if (alarm_state)
+	{
+		return ERR_ALARM_ALREADY_SET;
+	}
 	alarm_state = 1;
 	LED_bits = 0b000000001;
 	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
@@ -260,9 +292,15 @@ alt_u8 activate_alarm(void)
 
 /**
  * @brief turn off the "alarm_state" flag and the alarm LED light
+ * 
+ * @return alt_u8 
  */
 alt_u8 deactivate_alarm(void)
 {
+	if (!alarm_time)
+	{
+		return ERR_ALARM_NOT_SET;
+	}
 	alarm_state = 0;
 	LED_bits = 0b000000000;
 	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
@@ -271,6 +309,8 @@ alt_u8 deactivate_alarm(void)
 
 /**
  * @brief display the internal time on the 6 7seg displays
+ * 
+ * @return alt_u8 
  */
 alt_u8 display_current_time(void)
 {
@@ -289,6 +329,12 @@ alt_u8 display_current_time(void)
 
 /**
  * @brief convert 32bits int in formated time structure
+ * 
+ * @param time 32bits time in seconds
+ * @param hour pointer to store the hour value
+ * @param min pointer to store the minute value
+ * @param sec pointer to store the second value
+ * @return alt_u8 
  */
 alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec)
 {
@@ -304,29 +350,43 @@ alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec)
 
 
 /**
- * @brief convert 8bits hex in 2 8bits BCD
+ * @brief convert 8bits hex in 2 8bits BCD 
+ * 
+ * @param bin input binary number (must be <= 99)
+ * @param decimal pointer to store the decimal value (tens)
+ * @param unit pointer to store the unit value
+ * @return alt_u8 error code
  */
-alt_u8 time_2_bcd(alt_u8 time, alt_u8 *decimal, alt_u8 *unit)
+alt_u8 bin_2_bcd(alt_u8 bin, alt_u8 *decimal, alt_u8 *unit)
 {
 
-	*decimal = time / 10;
-	*unit = time % 10;
+	if (bin > 99)
+	{
+		return ERR_OVERFLOW;
+	}
+	*decimal = bin / 10;
+	*unit = bin % 10;
 #ifdef DEBUG
-	printf("\ntime 4 bcd = %d", time);
+	printf("\nbin 4 bcd = %d", bin);
 	printf("\ndec 4 bcd = %d", *decimal);
 	printf("\nunit 4 bcd = %d", *unit);
 #endif
 	return 0;
 }
 
+
 /**
  * @brief transforme the 32bits value to time format and diplay it on the 6 7seg displays
+ * 
+ * @param time 
+ * @param format 
+ * @return alt_u8 
  */
 alt_u8 update_display(alt_u32 time, alt_u8 format)
 {
 	time_2_hhmmss(time, &display.hours, &display.minutes, &display.seconds);
-	time_2_bcd(display.seconds, &display.bcd_sec_1, &display.bcd_sec_0);
-	time_2_bcd(display.minutes, &display.bcd_min_1, &display.bcd_min_0);
+	bin_2_bcd(display.seconds, &display.bcd_sec_1, &display.bcd_sec_0);
+	bin_2_bcd(display.minutes, &display.bcd_min_1, &display.bcd_min_0);
 	if (format)
 	{
 		if(display.hours > 11)
@@ -335,7 +395,7 @@ alt_u8 update_display(alt_u32 time, alt_u8 format)
 		}
 	}
 	
-	time_2_bcd(display.hours, &display.bcd_hou_1, &display.bcd_hou_0);
+	bin_2_bcd(display.hours, &display.bcd_hou_1, &display.bcd_hou_0);
 #ifdef DEBUG
 	printf("\nupdate display ");
 	printf("%d", display.bcd_sec_0);
@@ -386,17 +446,25 @@ alt_u8 update_display(alt_u32 time, alt_u8 format)
 
 /**
  * @brief drive the HP output pin to generate a sound
+ * @brief the sound is generated by a square wave with a frequency corresponding to the note to be played
+ * @brief frequency is generated by a blocking delay
+ * 
+ * @return alt_u8 
  */
 alt_u8 hp_out(void)
 {
     printf("\nHP_out");
-    for (size_t i = 0; i < 250; i++)
+	alt_u32 sec_test = 0;
+    for(size_t i = 0; i < sizeof(melody_1)/sizeof(melody_1[0]); i++)
     {
-        
-        IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, 1);
-        for (size_t j = 200; j != 0; --j); // delay loop
-        IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, 0);
-        for (size_t j = 200; j != 0; --j); // delay loop
+		sec_test = internal_time;
+		while(sec_test == internal_time); // wait for the internal time to change to get 1Hz sampling
+			{
+			IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, 1);
+			alt_usleep(1000000/melody_1[i]/2);
+			IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, 0);
+			alt_usleep(1000000/melody_1[i]/2);
+			}
     }
     
     return 0;
@@ -405,6 +473,8 @@ alt_u8 hp_out(void)
 
 /**
  * @brief simple blocking delay function
+ * @param delay_ms the delay in milliseconds
+ * @return 0 when the delay is over
  */
 alt_u8 delay(alt_u16 delay_ms)
 {
