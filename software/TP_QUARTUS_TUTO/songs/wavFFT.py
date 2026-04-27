@@ -37,9 +37,7 @@ for start in range(0, len(data) - window_size + 1, step_size):
         dom_mag = float(mag[0]) if len(mag) else 0.0
 
     rows.append({
-        "time_s": round(start / sr, 6),
-        "dominant_freq_hz": round(dom_freq, 6),
-        "magnitude": dom_mag
+        "dominant_freq_hz": round(dom_freq, 6)
     })
 
 df = pd.DataFrame(rows)

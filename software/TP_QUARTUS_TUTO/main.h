@@ -15,6 +15,8 @@
 #include <altera_avalon_pio_regs.h>
 #include <altera_avalon_timer.h>
 #include "sys/alt_alarm.h"
+#include "sys/alt_irq.h"
+#include <altera_avalon_timer_regs.h>
 
 /**
  * @brief user defined header files
@@ -111,7 +113,10 @@ alt_u32 HEX_bits = 0x0;         // pattern for HEX displays
 alt_u32 LED_bits = 0x0;         // pattern for LED lights
 alt_u16 SW_value = 0;           // variable to store the value of the SW slider switches
 alt_u8 KEY_value = 0;           // variable to store the value of the push button keys
-
+alt_u8 user_alarm_en = 0;
+alt_u8 user_alarm_flag = 0;
+alt_u16 melody_freq = 0;
+alt_u8 hp_output_state = 0;
 
 /*** Function Prototypes ***/
 
@@ -122,10 +127,16 @@ alt_u32 internal_alarm_callback (void* context);
 alt_u32 user_alarm_callback (void* context);
 alt_u8 display_current_time(void);
 alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec);
-alt_u8 bin_2_bcd(alt_u8 bin, alt_u8 *decimal, alt_u8 *unit)
+alt_u8 bin_2_bcd(alt_u8 bin, alt_u8 *decimal, alt_u8 *unit);
 alt_u8 update_display(alt_u32 time, alt_u8 format);
 alt_u8 activate_alarm(void);
 alt_u8 deactivate_alarm(void);
 alt_u8 set_alarm_time(void);
 alt_u8 set_internal_time(void);
 alt_u8 delay(alt_u16 delay_ms);
+alt_u8 launch_alarm(void);
+alt_u8 user_timer_setup(void);
+alt_u8 set_user_timer(alt_16 frequency);
+
+
+

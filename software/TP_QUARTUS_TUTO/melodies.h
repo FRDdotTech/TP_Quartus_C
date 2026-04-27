@@ -132,10 +132,20 @@
  /**
   * @brief test melody with 1Hz sampling
   */
- alt_u16 melody_1[] = {
-    C4, D4, E4, F4, G4, A4,
-    B4, C5, D5, E5, F5, G5,
-    A5, B5, C6, D6, E6, F6,
-    G6, A6, B6, C7, D7, E7,
-    F7, G7, A7, B7, C8, D8,
+ alt_u16 melody_2[] = {
+   C4, D4, E4, F4, G4, A4,
+   B4, C5, D5, E5, F5, G5,
+   A5, B5, C6, D6, E6, F6,
+   G6, A6, B6, C7, D7, E7,
+   F7, G7, A7, B7, C8, D8,
  };
+
+
+  /**
+  * @brief test melody with 1Hz sampling
+  */
+ alt_u16 melody_1[] = {
+  500, 500, 500, 500, 500,
+  500, 500, 500, 500, 500
+ };
+

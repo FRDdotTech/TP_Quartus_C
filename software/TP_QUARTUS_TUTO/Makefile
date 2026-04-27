@@ -142,7 +142,7 @@ ACDS_VERSION := 18.1
 ELF := TP_QUARTUS_TUTO.elf
 
 # Paths to C, C++, and assembly source files.
-C_SRCS := Reveil.c
+C_SRCS := main.c
 CXX_SRCS :=
 ASM_SRCS :=
 

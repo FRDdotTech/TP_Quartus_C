@@ -9,7 +9,27 @@
  * 
  */
 
+
+
+#include "system.h"
+#include "alt_types.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <altera_avalon_pio_regs.h>
+#include <altera_avalon_timer.h>
+#include "sys/alt_alarm.h"
+#include "sys/alt_irq.h"
+#include <altera_avalon_timer_regs.h>
+
+/*
+ * @brief user includes
+ */
 #include "main.h"
+#include "melodies.h"
+
+
+
 
 
 /**
@@ -17,10 +37,10 @@
  */
 
 // #define DEBUG
-#define INFO
-#define FASTCLOCK
+//#define INFO
+//#define FASTCLOCK
 #ifdef FASTCLOCK
-#define FASTCLOCK_FREQ 20
+#define FASTCLOCK_FREQ 4
 #endif
 
 
@@ -36,13 +56,11 @@ static alt_alarm user_alarm;		// user alarm for the sound generation
 
 
 
-alt_u8 test_var = 8;
-
-
 /**
  * @brief main function, initialize the internal alarm and enter in an infinite loop to check the state of the switches and push buttons
  */
 int main(void) {
+	user_timer_setup();
 #ifdef FASTCLOCK
 	printf("WARINING FASTCLOCK IS ENABLED\n");
 	if (alt_alarm_start (&internal_alarm, alt_ticks_per_second()/FASTCLOCK_FREQ, internal_alarm_callback, NULL) < 0)
@@ -52,17 +70,12 @@ int main(void) {
 	{
 		printf ("No system clock available\n");
 	}
-
-	/**
-	 * user alarm
-	 */
-	if (alt_alarm_start (&user_alarm, 10000, user_alarm_callback, NULL) < 0)
-	{
-		printf ("No system clock available\n");
-	}
-	printf("NIOSII started !!!");
+	printf("\n NIOSII start");
 	for(;;)
 	{
+		// reset the leds states at each loop
+		LED_bits = 0b000000000;
+		IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
 		get_key();
 		get_switch();
 		
@@ -95,8 +108,10 @@ int main(void) {
 			internal_time_set = 0;
 		}
 
-		printf("\nalarm state = %d", alarm_state);
-		printf("\nset alarm = %d", alarm_set);
+		if (SW_value & 0b0000001000)
+		{
+			launch_alarm();
+		}
 		
 
 		for (size_t delay = 20000; delay != 0; --delay); // delay loop
@@ -133,7 +148,7 @@ alt_u32 internal_alarm_callback (void* context)
 	{
 		if(internal_time == alarm_time)
 		{
-			hp_out();
+			launch_alarm();
 		}
 	}
 	if(internal_time >= 86400)
@@ -155,9 +170,13 @@ alt_u32 internal_alarm_callback (void* context)
  */
 alt_u32 user_alarm_callback (void* context)
 {
-	//hp_out();
-	printf("\nuser alarm");
-	return 10000;
+	user_alarm_flag = 1;
+	if (user_alarm_en)
+	{
+		set_user_timer((alt_u16)melody_freq/2);
+		return context;
+	}
+	return 0;
 }
 
 /**
@@ -227,6 +246,7 @@ alt_u8 set_alarm_time(void)
 			alarm_time = 0;
 		}
 	}
+	return 0;
 }
 
 /**
@@ -267,6 +287,7 @@ alt_u8 set_internal_time(void)
 			internal_time = 0;
 		}
 	}
+	return 0;
 }
 
 /**
@@ -306,6 +327,18 @@ alt_u8 deactivate_alarm(void)
 	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
 	return 0;
 }
+
+/**
+ * @brief output the choosen melodie and blink an led
+ */
+alt_u8 launch_alarm(void)
+{
+	LED_bits = 0b100000000;
+	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
+	hp_out();
+	return 0;
+}
+
 
 /**
  * @brief display the internal time on the 6 7seg displays
@@ -359,7 +392,6 @@ alt_u8 time_2_hhmmss(alt_u32 time, alt_u8 *hour, alt_u8 *min, alt_u8 *sec)
  */
 alt_u8 bin_2_bcd(alt_u8 bin, alt_u8 *decimal, alt_u8 *unit)
 {
-
 	if (bin > 99)
 	{
 		return ERR_OVERFLOW;
@@ -455,20 +487,66 @@ alt_u8 hp_out(void)
 {
     printf("\nHP_out");
 	alt_u32 sec_test = 0;
-    for(size_t i = 0; i < sizeof(melody_1)/sizeof(melody_1[0]); i++)
+	printf("\n\n\n MELODY START \n\n\n");
+	alt_u16 melody_count = sizeof(melody_1)/sizeof(melody_1[0]);
+	if (user_alarm_en)
+	{
+		printf("!!!! alarm already on");
+	}
+	else
+	{
+		user_alarm_en = 1;
+		alt_alarm_start (&user_alarm, alt_ticks_per_second(), user_alarm_callback, alt_ticks_per_second());	// 1Hz
+	}
+    for(size_t i = 0; i < melody_count; i++)
     {
-		sec_test = internal_time;
-		while(sec_test == internal_time); // wait for the internal time to change to get 1Hz sampling
+		melody_freq = melody_1[i];
+		user_alarm_flag = 0; // reset the user_alarm flag
+		while(!user_alarm_flag)
+		{
+			if (IORD_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE) & 0b00000001)
 			{
-			IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, 1);
-			alt_usleep(1000000/melody_1[i]/2);
-			IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, 0);
-			alt_usleep(1000000/melody_1[i]/2);
+				hp_output_state = !hp_output_state;
+				IOWR_ALTERA_AVALON_PIO_DATA(HP_ptr, hp_output_state);
+				IOWR_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE, 0); //clear status register
 			}
+		}
     }
-    
+	user_alarm_en = 0;
+    printf("\n\n\n MELODY STOP \n\n\n");
     return 0;
 }
+
+alt_u8 user_timer_setup(void)
+{
+	printf("\n timer status %d", IORD_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE));
+	IOWR_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE, (alt_u16) 0x02fa);
+	IOWR_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE, (alt_u16) 0xf080);
+	printf("\n PERIODH %d", IORD_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE));
+	printf("\n PERIODL %d", IORD_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE));
+	/**
+	 * Control bits
+	 * 0 - ITO
+	 * 1 - CONT
+	 * 2 - START
+	 * 3 - STOP
+	 */
+	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000110);
+	printf("\n timer control %d", IORD_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE));
+	printf("\n timer status %d", IORD_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE));
+	return 0;
+}
+
+alt_u8 set_user_timer(alt_16 frequency)
+{
+	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000000);
+	alt_u32 period = 50000000/frequency;
+	IOWR_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE, (alt_u16) period & 0x0000ffff);
+	IOWR_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE, (alt_u16) period>>16 & 0x0000ffff);
+	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000110);
+	return 0;
+}
+
 
 
 /**
