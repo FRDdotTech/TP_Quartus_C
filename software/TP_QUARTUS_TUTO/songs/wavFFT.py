@@ -30,11 +30,9 @@ for start in range(0, len(data) - window_size + 1, step_size):
 
     if len(mag) > 1:
         idx = np.argmax(mag[1:]) + 1
-        dom_freq = float(freqs[idx])
-        dom_mag = float(mag[idx])
+        dom_freq = int(freqs[idx])
     else:
-        dom_freq = 0.0
-        dom_mag = float(mag[0]) if len(mag) else 0.0
+        dom_freq = 0
 
     rows.append({
         "dominant_freq_hz": round(dom_freq, 6)
