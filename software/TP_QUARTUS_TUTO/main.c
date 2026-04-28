@@ -496,7 +496,7 @@ alt_u8 hp_out(void)
 	else
 	{
 		user_alarm_en = 1;
-		alt_alarm_start (&user_alarm, alt_ticks_per_second(), user_alarm_callback, alt_ticks_per_second());	// 1Hz
+		alt_alarm_start (&user_alarm, alt_ticks_per_second()/MELODY_FREQ, user_alarm_callback, alt_ticks_per_second()/MELODY_FREQ);	// 1Hz
 	}
     for(size_t i = 0; i < melody_count; i++)
     {
@@ -539,12 +539,10 @@ alt_u8 user_timer_setup(void)
 
 alt_u8 set_user_timer(alt_16 frequency)
 {
-	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000000);
 	alt_u32 period = 50000000/frequency;
-	IOWR_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE, (alt_u16) period & 0x0000ffff);
-	IOWR_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE, (alt_u16) period>>16 & 0x0000ffff);
-	printf("\n PERIODH %d", IORD_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE));
-	printf("\n PERIODL %d", IORD_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE));
+	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000000);
+	IOWR_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE, (alt_u16) (period & 0x0000ffff));
+	IOWR_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE, (alt_u16) (period>>16 & 0x0000ffff));
 	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000110);
 	return 0;
 }
