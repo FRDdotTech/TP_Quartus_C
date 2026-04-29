@@ -80,7 +80,7 @@ int main(void) {
 		get_switch();
 		
 
-		if(SW_value & 0b0000000001)
+		if(SW_value & 0b0000000001) // sw 0
 		{
 			activate_alarm();
 		}
@@ -89,7 +89,7 @@ int main(void) {
 			deactivate_alarm();
 		}
 		
-		if (SW_value & 0b0000000010)
+		if (SW_value & 0b0000000010) // sw 1
 		{
 			set_alarm_time();
 		}
@@ -98,7 +98,7 @@ int main(void) {
 			alarm_set = 0;
 		}
 
-		if (SW_value & 0b0000000100)
+		if (SW_value & 0b0000000100) // sw 2
 		{
 			internal_time_set = 1;
 			set_internal_time();
@@ -108,10 +108,13 @@ int main(void) {
 			internal_time_set = 0;
 		}
 
-		if (SW_value & 0b0000001000)
+		if (SW_value & 0b0000001000) // sw 3
 		{
 			launch_alarm();
 		}
+
+		select_melody = (SW_value >> 8) & 0b00000011;
+		printf("\n select_melody = %d", select_melody);
 		
 
 		for (size_t delay = 20000; delay != 0; --delay); // delay loop
@@ -335,7 +338,26 @@ alt_u8 launch_alarm(void)
 {
 	LED_bits = 0b100000000;
 	IOWR_ALTERA_AVALON_PIO_DATA(LED_ptr, LED_bits);
-	hp_out();
+	
+
+	switch (select_melody)
+	{
+	case 0:
+		hp_out(tetris, sizeof(tetris)/sizeof(tetris[0]));
+		break;
+	case 1:
+		hp_out(mario, sizeof(mario)/sizeof(mario[0]));
+		break;
+	case 2:
+		hp_out(Zelda, sizeof(Zelda)/sizeof(Zelda[0]));
+		break;
+	case 3:
+		hp_out(base_melody, sizeof(base_melody)/sizeof(base_melody[0]));
+		break;
+	
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -483,24 +505,17 @@ alt_u8 update_display(alt_u32 time, alt_u8 format)
  * 
  * @return alt_u8 
  */
-alt_u8 hp_out(void)
+alt_u8 hp_out(alt_u16 *melody, alt_u16 melody_count)
 {
     printf("\nHP_out");
 	alt_u32 sec_test = 0;
 	printf("\n\n\n MELODY START \n\n\n");
-	alt_u16 melody_count = sizeof(melody_1)/sizeof(melody_1[0]);
-	if (user_alarm_en)
-	{
-		printf("!!!! alarm already on");
-	}
-	else
-	{
-		user_alarm_en = 1;
-		alt_alarm_start (&user_alarm, alt_ticks_per_second()/MELODY_FREQ, user_alarm_callback, alt_ticks_per_second()/MELODY_FREQ);	// 1Hz
-	}
+	alt_alarm_stop(&user_alarm);
+	user_alarm_en = 1;
+	alt_alarm_start(&user_alarm, alt_ticks_per_second()/MELODY_FREQ, user_alarm_callback, alt_ticks_per_second()/MELODY_FREQ);
     for(size_t i = 0; i < melody_count; i++)
     {
-		melody_freq = melody_1[i];
+		melody_freq = melody[i];
 		user_alarm_flag = 0; // reset the user_alarm flag
 		while(!user_alarm_flag)
 		{

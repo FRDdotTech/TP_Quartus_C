@@ -7,7 +7,7 @@
  */
 
 
-#define MELODY_FREQ 10
+#define MELODY_FREQ 8
 
 
 #define C0 16
@@ -134,7 +134,7 @@
  /**
   * @brief test melody with 1Hz sampling
   */
- alt_u16 melody_2[] = {
+ alt_u16 base_melody[] = {
    C4, D4, E4, F4, G4, A4,
    B4, C5, D5, E5, F5, G5,
    A5, B5, C6, D6, E6, F6,
@@ -142,19 +142,10 @@
    F7, G7, A7, B7, C8, D8,
  };
 
-
-  /**
-  * @brief test melody with 1Hz sampling
-  */
- alt_u16 melody_3[] = {
-  500, 500, 500, 500, 500,
-  500, 500, 500, 500, 500
- };
-
   /**
   * @brief mario theme
   */
- alt_u16 melody_10[] = {
+ alt_u16 mario[] = {
     659,659,0,659, 784,0,880,0, 659,0,523,0, 587,0,494,0,
     523,523,0,523, 659,0,784,0, 880,0,784,0, 659,0,523,0,
 
@@ -174,7 +165,7 @@
  /**
   * @brief tetris theme
   */
-  alt_u16 melody_0[] = {
+  alt_u16 tetris[] = {
     659,659,659,659, 494,494, 523,523, 587,587,
     659,659, 587,587, 523,523, 494,494, 440,440,
 
@@ -196,7 +187,7 @@
   /**
   * @brief Zelda theme
   */
- alt_u16 melody_1[] = {
+ alt_u16 Zelda[] = {
 
     659,0,659,0, 659,0,523,0, 659,0,784,0, 0,0,
     784,0,784,0, 784,0,659,0, 587,0,523,0, 0,0,
