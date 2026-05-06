@@ -43,7 +43,7 @@
 // #define INFO
 #define FASTCLOCK
 #ifdef FASTCLOCK
-#define FASTCLOCK_FREQ 4
+#define FASTCLOCK_FREQ 5
 #endif
 
 
@@ -86,6 +86,7 @@ int main(void) {
 		
 		if (SW_value & 0b0000000010) // sw 1
 		{
+			alarm_set = 1;
 			rc = set_time(&alarm_time);
 		}
 		else
@@ -111,7 +112,7 @@ int main(void) {
 		time_format = (SW_value >> 4) & 0b00000001;
 		select_melody = (SW_value >> 8) & 0b00000011;
 		rc = delay(200);
-		if (update_display_flag)
+		if (alarm_set)
 		{
 			update_display(alarm_time, time_format);
 		}
@@ -191,14 +192,6 @@ alt_u32 internal_alarm_callback (void* context)
 	if(!internal_time_set)
 	{
 		internal_time++;
-	}
-	if (alarm_set)
-	{
-		update_display_flag = 1;
-	}
-	else
-	{
-		update_display_flag = 0;
 	}
 	if(alarm_state)
 	{
@@ -291,7 +284,8 @@ alt_u8 set_time(alt_u32 *time)
 	printf("\n internal_time = %d", internal_time);
 #endif
 	alt_u8 rc = ERR_OK;
-	while(SW_value & 0b0000000100)
+	update_display(*time, time_format);
+	while(SW_value & 0b0000000110)
 	{
 		get_switch();
 		get_key();
@@ -339,10 +333,6 @@ alt_u8 activate_alarm(void)
 	if (alarm_time == 0)
 	{
 		return ERR_ALARM_TIME_NOT_SET;
-	}
-	if (alarm_state)
-	{
-		return ERR_ALARM_ALREADY_SET;
 	}
 	alarm_state = 1;
 	LED_bits = 0b0000000111;
@@ -631,6 +621,15 @@ alt_u8 delay(alt_u16 delay_ms)
 		{
 			//launch_alarm();
 			return ERR_LAUNCH_ALARM;
+		}
+
+		if (alarm_set)
+		{
+			update_display(alarm_time, time_format);
+		}
+		else
+		{
+			update_display(internal_time, time_format);
 		}
 	}
 	return ERR_OK;

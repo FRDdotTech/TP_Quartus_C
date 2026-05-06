@@ -153,7 +153,6 @@ alt_u8 hp_alarm_flag = 0;			// flag to indicate that the hp_alarm callback funct
 alt_u8 alarm_state = 0;         	// flag to indicate if the alarm is activated
 alt_u8 alarm_set = 0;           	// flag to display the alarm time on the 6 7seg displays
 alt_u8 internal_time_set = 0;   	// flag to display the modified time on the 6 7seg displays
-alt_u8 update_display_flag = 0;		// flag to indicate that the display should be updated (0: display internal time, 1: display alarm time)
 
 
 /**
@@ -172,8 +171,7 @@ alt_u8 bin_2_bcd(alt_u8 bin, alt_u8 *decimal, alt_u8 *unit);
 alt_u8 update_display(alt_u32 time, alt_u8 format);
 alt_u8 activate_alarm(void);
 alt_u8 deactivate_alarm(void);
-alt_u8 set_alarm_time(void);
-alt_u8 set_internal_time(void);
+alt_u8 set_time(alt_u32 *time);
 alt_u8 delay(alt_u16 delay_ms);
 alt_u8 launch_alarm(void);
 alt_u8 user_timer_setup(void);
