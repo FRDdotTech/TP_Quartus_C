@@ -4,16 +4,15 @@
  * @author Antoine.F
  * @brief this file contains function prototypes, macros and global variables definitions for the main.c file
  * @version 0.1
- * @date 05/05/2026
+ * @date 07/05/2026
  * @copyright Copyright (c) 2026
  * 
  * 
  */
  
 
-/**
- * @brief NIOSII header files
- */
+// NIOSII header files
+
 #include "system.h"
 #include "alt_types.h"
 #include <stdio.h>
@@ -25,29 +24,23 @@
 #include "sys/alt_irq.h"
 #include <altera_avalon_timer_regs.h>
 
-/**
- * @brief user defined header files
- */
 
 
 
-/**
- * @section Key definitions
- */
+// Key definitions
+
 #define NO_KEY 	0
 #define KEY_0 	1
 #define KEY_1 	2
 #define KEY_0_1	3
 
-/**
- * @section time format definitions
- */
+// time format definitions
+
 #define FORMAT_24H 0
 #define FORMAT_12H 1
 
-/**
- * @section 7 segment display definitions
- */
+// 7 segment display definitions
+
 #define HEX_0		0b1000000
 #define HEX_1		0b1111001
 #define HEX_2		0b0100100
@@ -84,9 +77,8 @@ enum error_codes
 };
 
 
-/**
- * @section NIOSII PIO addresses
- */
+// NIOSII PIO addresses
+
 volatile int * LED_ptr = (int *)LED_R_BASE; // LED address
 volatile int * SW_switch_ptr = (int *)SWITCHES_2POS_BASE; // SW slider address
 volatile int * KEY_ptr = (int *)PUSH_BUTTONS_BASE; // pushbutton KEY address
@@ -96,10 +88,8 @@ volatile int * HP_ptr = (int *)HP_OUT_BASE; // HEX3_HEX0 address
 
 
 
-/**
- * @section NIOSII Alarms
- * 
- */
+// NIOSII Alarms
+
 static alt_alarm internal_alarm; 	// internal alarm to update the internal time every second and check if the alarm time is reached
 static alt_alarm hp_alarm;			// alarm for the sound generation
 static alt_alarm delay_alarm;		// alarm for accurate blocking delay
@@ -126,10 +116,8 @@ typedef struct display_img_s
 display_img display;
 
 
-/**
- * @section variables definitions
- * 
- */
+// variables definitions
+
 alt_u32 internal_time = 0;      // time register incremented every second
 alt_u32 alarm_time = 0;         // time register to set the alarm
 alt_u32 HEX_bits = 0;         	// pattern for HEX displays
@@ -142,10 +130,8 @@ alt_u8 select_melody = 0;		// variable to store the selected melody
 alt_u8 time_format = FORMAT_24H;	// flag to store the time format
 
 
-/**
- * @section flag definitions
- * 
- */
+// flag definitions 
+
 alt_u8 delay_alarm_flag = 0;		// flag to indicate that the blocking delay is over
 alt_u8 launch_alarm_flag = 0;		// flag to indicate that the alarm time is reached and the alarm should be launched
 alt_u8 hp_alarm_en = 0;				// flag to indicate that the hp_alarm is enabled to generate the sound (used to stop the hp_alarm when the melody is over or when a key is pressed to stop the alarm)
@@ -155,9 +141,7 @@ alt_u8 alarm_set = 0;           	// flag to display the alarm time on the 6 7seg
 alt_u8 internal_time_set = 0;   	// flag to display the modified time on the 6 7seg displays
 
 
-/**
- * @section function prototypes
- */
+// function prototypes
 
 alt_u32 internal_alarm_callback (void* context);
 alt_u32 hp_alarm_callback (void* context);

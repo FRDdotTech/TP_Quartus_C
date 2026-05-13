@@ -4,7 +4,7 @@
  * @author Antoine.F
  * @brief this file contains the main function of the project, it initializes the internal alarm and enter in an infinite loop to check the state of the switches and push buttons
  * @version 0.1
- * @date 23/04/2026
+ * @date 07/05/2026
  * @copyright Copyright (c) 2026
  * 
  * @mainpage main.c
@@ -25,9 +25,9 @@
 #include "sys/alt_irq.h"
 #include <altera_avalon_timer_regs.h>
 
-/** 
- * @section user includes
- */
+
+// user includes
+
 #include "main.h"
 #include "melodies.h"
 
@@ -35,13 +35,12 @@
 
 
 
-/**
- * @section DEBUG macros
- */
+
+// DEBUG macros
 
 // #define DEBUG
 // #define INFO
-#define FASTCLOCK
+// #define FASTCLOCK
 #ifdef FASTCLOCK
 #define FASTCLOCK_FREQ 5
 #endif
@@ -563,11 +562,9 @@ alt_u8 hp_out(alt_u16 *melody, alt_u16 melody_count)
  */
 alt_u8 user_timer_setup(void)
 {
-	printf("\n timer status %d", IORD_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE));
+	
 	IOWR_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE, (alt_u16) 0x02fa);
 	IOWR_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE, (alt_u16) 0xf080);
-	printf("\n PERIODH %d", IORD_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE));
-	printf("\n PERIODL %d", IORD_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE));
 	/**
 	 * Control bits
 	 * 0 - ITO
@@ -576,8 +573,14 @@ alt_u8 user_timer_setup(void)
 	 * 3 - STOP
 	 */
 	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000110);
+	
+#ifdef DEBUG
+	printf("\n timer status %d", IORD_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE));
+	printf("\n PERIODH %d", IORD_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE));
+	printf("\n PERIODL %d", IORD_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE));
 	printf("\n timer control %d", IORD_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE));
 	printf("\n timer status %d", IORD_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE));
+#endif
 	return ERR_OK;
 }
 
@@ -590,7 +593,6 @@ alt_u8 user_timer_setup(void)
 alt_u8 set_user_timer(alt_16 frequency)
 {
 	alt_u32 period = 50000000/frequency;
-	//IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000000);
 	IOWR_ALTERA_AVALON_TIMER_PERIODL(TIMER_0_BASE, (alt_u16) (period & 0x0000ffff));
 	IOWR_ALTERA_AVALON_TIMER_PERIODH(TIMER_0_BASE, (alt_u16) (period>>16 & 0x0000ffff));
 	IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0b00000110);
@@ -608,6 +610,14 @@ alt_u8 delay(alt_u16 delay_ms)
 	alt_u32 current_internal = internal_time;
 	alt_alarm_stop(&delay_alarm);
 	delay_alarm_flag = 0;
+	if(alarm_set)
+	{
+		update_display(alarm_time, time_format);
+	}
+	else
+	{
+		update_display(internal_time, time_format);
+	}
 	alt_alarm_start(&delay_alarm, alt_ticks_per_second()/(1000/delay_ms), delay_alarm_callback, 0);
 	while (!delay_alarm_flag)
 	{
@@ -621,15 +631,6 @@ alt_u8 delay(alt_u16 delay_ms)
 		{
 			//launch_alarm();
 			return ERR_LAUNCH_ALARM;
-		}
-
-		if (alarm_set)
-		{
-			update_display(alarm_time, time_format);
-		}
-		else
-		{
-			update_display(internal_time, time_format);
 		}
 	}
 	return ERR_OK;
